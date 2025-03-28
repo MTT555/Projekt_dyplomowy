@@ -1,0 +1,1 @@
+Folder zawierający przykładowe filmy wygenerowane przez AI do testów.

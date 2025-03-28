@@ -3,4 +3,4 @@ __pycache__/
 *.pyc
 *.pkl
 *.h5
-dane_litery.csv
+data.csv
