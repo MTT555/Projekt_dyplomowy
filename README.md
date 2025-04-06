@@ -2,7 +2,7 @@
 Projekt w ramach przedmiotu Projekt Dyplomowy na semestrze 6 informatyki stosowanej na PW.
 Uruchomienie projektu:
 
-Proszę utworzyć wirtualne środowisko Pythona. Wymagana wersja Pythona 3.10.10.
+Proszę utworzyć wirtualne środowisko Pythona. Wymagana wersja Pythona 3.10.11.
 ```python
 python -m venv venv
 venv\Scripts\activate  # Windows
