@@ -12,4 +12,12 @@ Po utworzeniu venv zainstalować wymagane zależności
 ```python
 pip install -r requirements.txt
 ```
+Przejść do katalogu main
+```
+cd main
+```
+Uruchomić program
+```
+python main.py
+```
 Dalsze informacje wkrótce
