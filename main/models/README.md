@@ -1,1 +1,1 @@
-Folder zawierający pliki modeli powstałych po procesie treningu.
+Folder zawierający pliki modeli powstałych po procesie treningu (rozszerzenie .h5).

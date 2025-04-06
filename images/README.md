@@ -1,1 +1,0 @@
-Folder zawierający zdjęcia wykonywane podczas zbierania danych treningowych.

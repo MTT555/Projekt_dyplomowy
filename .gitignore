@@ -3,5 +3,6 @@ __pycache__/
 *.pyc
 *.pkl
 *.h5
-data.csv
+*.csv
 images/
+*.log
