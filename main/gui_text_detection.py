@@ -160,8 +160,6 @@ def update_text_stats(app):
     app.text_stats_label.config(text=stats_msg)
 
 def create_text_detection_tab(app):
-    app.tab_text_detection = ttk.Frame(app.notebook)
-    app.notebook.add(app.tab_text_detection, text="Miganie tekstu")
 
     main_frame = ttk.Frame(app.tab_text_detection)
     main_frame.pack(fill=tk.BOTH, expand=True)
