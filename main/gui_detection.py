@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, messagebox
+from locales import tr
 
 def create_detection_tab(app):
     app.det_main_frame = ttk.Frame(app.tab_detection)
@@ -8,13 +9,18 @@ def create_detection_tab(app):
     app.det_left_frame = ttk.Frame(app.det_main_frame)
     app.det_left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    app.det_right_frame = ttk.Frame(app.det_main_frame, width=300)
-    app.det_right_frame.pack(side=tk.RIGHT, fill=tk.Y)
-
     app.det_camera_label = ttk.Label(app.det_left_frame, font=("Roboto", 12))
     app.det_camera_label.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-    app.det_text = scrolledtext.ScrolledText(app.det_right_frame, height=20, wrap=tk.WORD, font=("Roboto", 12))
+    app.det_right_frame = ttk.Frame(app.det_main_frame, width=300)
+    app.det_right_frame.pack(side=tk.RIGHT, fill=tk.Y)
+
+    app.det_text = scrolledtext.ScrolledText(
+        app.det_right_frame,
+        height=20,
+        wrap=tk.WORD,
+        font=("Roboto", 12),
+    )
     app.det_text.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
     control_frame = ttk.Frame(app.det_right_frame)
@@ -23,44 +29,72 @@ def create_detection_tab(app):
     interval_frame = ttk.Frame(control_frame)
     interval_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
 
-    interval_label = ttk.Label(interval_frame, text="Interwał (ms):", font=("Roboto", 12))
-    interval_label.pack(side=tk.LEFT, padx=5)
+    app.det_interval_label = ttk.Label(interval_frame, text=tr("lbl_interval"), font=("Roboto", 12))
+    app.det_interval_label.pack(side=tk.LEFT, padx=5)
 
     app.interval_var = tk.StringVar(value="1000")
     interval_entry = ttk.Entry(interval_frame, textvariable=app.interval_var, width=7, font=("Roboto", 12))
     interval_entry.pack(side=tk.LEFT, padx=5)
 
-    threshold_label = ttk.Label(interval_frame, text="Próg:", font=("Roboto", 12))
-    threshold_label.pack(side=tk.LEFT, padx=5)
+    app.det_threshold_label = ttk.Label(interval_frame, text=tr("lbl_threshold"), font=("Roboto", 12))
+    app.det_threshold_label.pack(side=tk.LEFT, padx=5)
 
     app.threshold_var = tk.StringVar(value="0.7")
     threshold_entry = ttk.Entry(interval_frame, textvariable=app.threshold_var, width=5, font=("Roboto", 12))
     threshold_entry.pack(side=tk.LEFT, padx=5)
 
-    if not hasattr(app, 'enter_mode_var'):
+    if not hasattr(app, "enter_mode_var"):
         app.enter_mode_var = tk.BooleanVar(value=False)
 
-    enter_checkbutton = ttk.Checkbutton(
+    app.det_enter_chk = ttk.Checkbutton(
         control_frame,
-        text="Wstawiaj znak tylko po Enterze",
-        variable=app.enter_mode_var
+        text=tr("chk_enter_mode"),
+        variable=app.enter_mode_var,
     )
-    enter_checkbutton.pack(side=tk.TOP, anchor='w', padx=10, pady=5)
+    app.det_enter_chk.pack(side=tk.TOP, anchor="w", padx=10, pady=5)
 
     btn_frame = ttk.Frame(control_frame)
     btn_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
 
-    app.start_det_button = ttk.Button(btn_frame, text="Start Detekcji", command=app.start_detection)
-    app.start_det_button.pack(side=tk.LEFT, padx=5)
+    original_start_detection_cmd = app.start_detection
+    def validated_start_detection():
+        interval_txt = app.interval_var.get().strip()
+        threshold_txt = app.threshold_var.get().strip()
+        if not interval_txt or not threshold_txt:
+            messagebox.showerror(tr("dlg_error"), tr("err_incomplete_input"))
+            return
+        try:
+            interval_val = int(interval_txt)
+            threshold_val = float(threshold_txt)
+            if interval_val <= 0 or threshold_val <= 0 or threshold_val > 1:
+                messagebox.showwarning(tr("dlg_warning"), tr("warn_invalid_range"))
+                return
+        except ValueError:
+            messagebox.showerror(tr("dlg_error"), tr("err_invalid_numbers"))
+            return
+        original_start_detection_cmd()
 
-    app.stop_det_button = ttk.Button(btn_frame, text="Stop Detekcji", command=app.stop_detection, state="disabled")
-    app.stop_det_button.pack(side=tk.LEFT, padx=5)
+    app.det_start_btn = ttk.Button(btn_frame, text=tr("btn_start_detection"), command=validated_start_detection)
+    app.det_start_btn.pack(side=tk.LEFT, padx=5)
 
-    app.clear_screen_button = ttk.Button(
+    original_stop_detection_cmd = app.stop_detection
+    def validated_stop_detection():
+        original_stop_detection_cmd()
+
+    app.det_stop_btn = ttk.Button(btn_frame, text=tr("btn_stop_detection"), command=validated_stop_detection, state="disabled")
+    app.det_stop_btn.pack(side=tk.LEFT, padx=5)
+
+    app.det_clear_btn = ttk.Button(
         btn_frame,
-        text="Wyczyść ekran",
-        command=lambda: app.det_text.delete('1.0', tk.END)
+        text=tr("btn_clear_screen"),
+        command=lambda: app.det_text.delete("1.0", tk.END),
     )
-    app.clear_screen_button.pack(side=tk.LEFT, padx=5)
+    app.det_clear_btn.pack(side=tk.LEFT, padx=5)
 
     app.root.bind("<Return>", lambda event: on_enter(event, app))
+
+def on_enter(event, app):
+    if app.enter_mode_var.get() and app.next_letter:
+        app.det_text.insert(tk.END, app.next_letter)
+        app.det_text.see(tk.END)
+        app.next_letter = ""

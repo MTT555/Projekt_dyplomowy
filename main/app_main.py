@@ -14,7 +14,10 @@ from sklearn.preprocessing import StandardScaler
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+from locales import tr, load as set_language
 import training
 import detection
 import gui_collect
@@ -24,80 +27,258 @@ import gui_instructions
 import gui_text_detection
 from utils import disable_space_activation, TextRedirector
 
+
 class HandDataCollectorApp:
     def __init__(self, root):
+        # ---------- basic state ----------
         self.root = root
-        self.root.title("Aplikacja - Zbieranie danych, Trening i Detekcja")
+        set_language("en")                               # default language
+        self.root.title(tr("app_title"))
+
+        # UI‑controlled variables
         self.interval_var = tk.StringVar(value="1000")
         self.enter_mode_var = tk.BooleanVar(value=False)
-        
+        self.show_overlays_var = tk.BooleanVar(value=True)
+        self.language_var = tk.StringVar(value="en")     # language selector
+
+        # ---------- logs ----------
         self.logs_dir = "other"
         self.logs_file_path = os.path.join(self.logs_dir, "logs.log")
         if not os.path.exists(self.logs_dir):
             os.makedirs(self.logs_dir, exist_ok=True)
         self.log_file = open(self.logs_file_path, mode='w', encoding='utf-8')
-        
+
+        # ---------- main layout ----------
         self.main_frame = ttk.Frame(self.root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # language combobox (top‑right)
+        lang_frame = ttk.Frame(self.root)
+        lang_frame.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10) 
+
+        self.lang_label = ttk.Label(lang_frame, text=tr("language_label"))
+        self.lang_label.pack(side=tk.LEFT, padx=(0,5))
+
+        self.lang_combo = ttk.Combobox(
+            lang_frame,
+            values=["en", "pl"],
+            textvariable=self.language_var,
+            state="readonly",
+            width=3
+        )
+        self.lang_combo.pack()
+        self.lang_combo.bind("<<ComboboxSelected>>", self.change_language)
+
+        # notebook tabs
         self.notebook = ttk.Notebook(self.main_frame)
         self.notebook.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        
+
         self.tab_collect = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_collect, text="Zbieranie danych")
+        self.notebook.add(self.tab_collect, text=tr("tab_collect"))
         self.tab_train = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_train, text="Trening modelu")
+        self.notebook.add(self.tab_train, text=tr("tab_train"))
         self.tab_detection = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_detection, text="Detekcja znaków")
+        self.notebook.add(self.tab_detection, text=tr("tab_detection"))
         self.tab_text_detection = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_text_detection, text="Miganie tekstu")
+        self.notebook.add(self.tab_text_detection, text=tr("tab_text"))
         self.tab_instructions = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_instructions, text="Instrukcja")
-        self.log_console = scrolledtext.ScrolledText(self.main_frame, height=10, wrap=tk.WORD,font=("Roboto", 12))
+        self.notebook.add(self.tab_instructions, text=tr("tab_instr"))
+
+        # log console
+        self.log_console = scrolledtext.ScrolledText(
+            self.main_frame, height=10, wrap=tk.WORD, font=("Roboto", 12)
+        )
         self.log_console.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=False)
-        
+
+        # ---------- paths, dirs ----------
         self.csv_file_var = tk.StringVar(value='data/data.csv')
         self.model_file_var = tk.StringVar(value='models/model.h5')
         self.scaler_file_var = tk.StringVar(value='other/scaler.pkl')
         self.images_dir = 'images'
         self._prepare_directories_and_csv()
-        
+
+        # ---------- misc state ----------
         self.current_label = None
         self.flip_vertical = False
         self.new_index = None
-        
+
+        # ---------- default MediaPipe params ----------
         self.default_static_image_mode = False
         self.default_max_num_hands = 1
         self.default_model_complexity = 1
         self.default_min_detection_confidence = 0.5
         self.default_min_tracking_confidence = 0.5
-        
+
         self.static_image_mode_var = tk.BooleanVar(value=self.default_static_image_mode)
         self.max_num_hands_var = tk.IntVar(value=self.default_max_num_hands)
         self.model_complexity_var = tk.IntVar(value=self.default_model_complexity)
         self.min_detection_confidence_var = tk.IntVar(value=int(self.default_min_detection_confidence * 100))
         self.min_tracking_confidence_var = tk.IntVar(value=int(self.default_min_tracking_confidence * 100))
-        
+
+        # ---------- MediaPipe ----------
         self.hands = None
         self._init_mediapipe_hands()
-        
+
+        # ---------- camera ----------
         self.available_cameras = self._detect_cameras(max_cameras=5)
         if not self.available_cameras:
-            raise RuntimeError("Nie wykryto żadnej dostępnej kamery w systemie!")
+            raise RuntimeError(tr("err_no_camera"))
         self.current_camera_index = self.available_cameras[0]
         self.cap = cv2.VideoCapture(self.current_camera_index)
-        
+
+        # ---------- create GUI sub-tabs ----------
         gui_collect.create_collect_tab(self)
         gui_train.create_train_tab(self)
         gui_detection.create_detection_tab(self)
         gui_text_detection.create_text_detection_tab(self)
         gui_instructions.create_instructions_tab(self)
-        
-        
+
+        # ---------- bindings ----------
         self.root.bind_all("<space>", self._on_space_or_enter)
         self.root.bind_all("<Return>", self._on_space_or_enter)
-        self.update_frame()
-        
+
+        # detection flag
         self.detection_running = False
+
+        # start UI updates
+        self.update_frame()
+
+    # ------------------------------------------------------------------
+    # language switching
+    # ------------------------------------------------------------------
+    def change_language(self, *_):
+        new_lang = self.language_var.get()
+        set_language(new_lang)
+        self.refresh_ui_texts()
+
+    def refresh_ui_texts(self):
+        self.root.title(tr("app_title"))
+
+        if hasattr(self, "lang_label"):
+            self.lang_label.config(text=tr("language_label"))
+
+        self.notebook.tab(self.tab_collect,        text=tr("tab_collect"))
+        self.notebook.tab(self.tab_train,          text=tr("tab_train"))
+        self.notebook.tab(self.tab_detection,      text=tr("tab_detection"))
+        self.notebook.tab(self.tab_text_detection, text=tr("tab_text"))
+        self.notebook.tab(self.tab_instructions,   text=tr("tab_instr"))
+        if hasattr(self, "col_lbl_choose_cam"):
+            self.col_lbl_choose_cam.config(text=tr("lbl_choose_camera"))
+        if hasattr(self, "col_lbl_enter_label"):
+            self.col_lbl_enter_label.config(text=tr("lbl_enter_label"))
+        if hasattr(self, "col_btn_set_label"):
+            self.col_btn_set_label.config(text=tr("btn_set_label"))
+        if hasattr(self, "col_btn_save"):
+            self.col_btn_save.config(text=tr("btn_save_data"))
+        if hasattr(self, "col_btn_flip"):
+            self.col_btn_flip.config(text=tr("btn_flip"))
+        if hasattr(self, "col_section_data"):
+            self.col_section_data.config(text=tr("section_data_mgmt"))
+        if hasattr(self, "col_btn_clear_images"):
+            self.col_btn_clear_images.config(text=tr("btn_clear_images"))
+        if hasattr(self, "col_btn_clear_csv"):
+            self.col_btn_clear_csv.config(text=tr("btn_reset_csv"))
+        if hasattr(self, "col_section_reset"):
+            self.col_section_reset.config(text=tr("section_reset"))
+        if hasattr(self, "col_btn_reset_defaults"):
+            self.col_btn_reset_defaults.config(text=tr("btn_reset_defaults"))
+        if hasattr(self, "col_btn_quit"):
+            self.col_btn_quit.config(text=tr("btn_quit"))
+        if hasattr(self, "col_section_img"):
+            self.col_section_img.config(text=tr("section_img_settings"))
+        if hasattr(self, "col_lbl_brightness"):
+            self.col_lbl_brightness.config(text=tr("lbl_brightness"))
+        if hasattr(self, "col_lbl_contrast"):
+            self.col_lbl_contrast.config(text=tr("lbl_contrast"))
+        if hasattr(self, "col_lbl_gamma"):
+            self.col_lbl_gamma.config(text=tr("lbl_gamma"))
+        if hasattr(self, "col_lbl_color_shift"):
+            self.col_lbl_color_shift.config(text=tr("lbl_color_shift"))
+        if hasattr(self, "col_lbl_R"):
+            self.col_lbl_R.config(text=tr("lbl_R"))
+        if hasattr(self, "col_lbl_G"):
+            self.col_lbl_G.config(text=tr("lbl_G"))
+        if hasattr(self, "col_lbl_B"):
+            self.col_lbl_B.config(text=tr("lbl_B"))
+
+        if hasattr(self, "mp_section_frame"):
+            self.mp_section_frame.config(text=tr("section_mediapipe"))
+        if hasattr(self, "mp_chk_static"):
+            self.mp_chk_static.config(text=tr("chk_static_img_mode"))
+        if hasattr(self, "mp_lbl_max_hands"):
+            self.mp_lbl_max_hands.config(text=tr("lbl_max_num_hands"))
+        if hasattr(self, "mp_lbl_model_complex"):
+            self.mp_lbl_model_complex.config(text=tr("lbl_model_complexity"))
+        if hasattr(self, "mp_lbl_min_det"):
+            self.mp_lbl_min_det.config(text=tr("lbl_min_det_conf"))
+        if hasattr(self, "mp_lbl_min_track"):
+            self.mp_lbl_min_track.config(text=tr("lbl_min_track_conf"))
+        if hasattr(self, "mp_btn_apply"):
+            self.mp_btn_apply.config(text=tr("btn_apply_mp"))
+        if hasattr(self, "mp_chk_show_overlays"):
+            self.mp_chk_show_overlays.config(text=tr("chk_show_overlays"))
+        if hasattr(self, "mp_file_frame"):
+            self.mp_file_frame.config(text=tr("frame_file_labels"))
+        if hasattr(self, "mp_lbl_csv"):
+            self.mp_lbl_csv.config(text=tr("lbl_csv_file"))
+        if hasattr(self, "mp_lbl_model"):
+            self.mp_lbl_model.config(text=tr("lbl_model_file"))
+        if hasattr(self, "mp_lbl_scaler"):
+            self.mp_lbl_scaler.config(text=tr("lbl_scaler_file"))
+
+        if hasattr(self, "train_frame_label"):
+            self.train_frame_label.config(text=tr("frame_train_config"))
+        if hasattr(self, "train_lbl_test_size"):
+            self.train_lbl_test_size.config(text=tr("lbl_test_size"))
+        if hasattr(self, "train_lbl_random_state"):
+            self.train_lbl_random_state.config(text=tr("lbl_random_state"))
+        if hasattr(self, "train_lbl_epochs"):
+            self.train_lbl_epochs.config(text=tr("lbl_epochs"))
+        if hasattr(self, "train_lbl_batch_size"):
+            self.train_lbl_batch_size.config(text=tr("lbl_batch_size"))
+        if hasattr(self, "train_lbl_patience"):
+            self.train_lbl_patience.config(text=tr("lbl_patience"))
+        if hasattr(self, "train_btn_start"):
+            self.train_btn_start.config(text=tr("btn_start_training"))
+        if hasattr(self, "plot_frame"):
+            self.plot_frame.config(text=tr("frame_train_plots"))
+        if hasattr(self, "val_split_label"):
+            self.val_split_label.config(text=tr("lbl_validation_split"))
+        if hasattr(self, "monitor_label"):
+            self.monitor_label.config(text=tr("lbl_monitor"))
+
+        if hasattr(self, "det_interval_label"):
+            self.det_interval_label.config(text=tr("lbl_interval"))
+        if hasattr(self, "det_threshold_label"):
+            self.det_threshold_label.config(text=tr("lbl_threshold"))
+        if hasattr(self, "det_enter_chk"):
+            self.det_enter_chk.config(text=tr("chk_enter_mode"))
+        if hasattr(self, "det_start_btn"):
+            self.det_start_btn.config(text=tr("btn_start_detection"))
+        if hasattr(self, "det_stop_btn"):
+            self.det_stop_btn.config(text=tr("btn_stop_detection"))
+        if hasattr(self, "det_clear_btn"):
+            self.det_clear_btn.config(text=tr("btn_clear_screen"))
+
+        if hasattr(self, "txt_interval_label"):
+            self.txt_interval_label.config(text=tr("lbl_interval"))
+        if hasattr(self, "txt_threshold_label"):
+            self.txt_threshold_label.config(text=tr("lbl_threshold"))
+        if hasattr(self, "txt_lbl_file"):
+            self.txt_lbl_file.config(text=tr("lbl_select_text_file"))
+        if hasattr(self, "txt_load_btn"):
+            self.txt_load_btn.config(text=tr("btn_load_text"))
+        if hasattr(self, "txt_start_btn"):
+            self.txt_start_btn.config(text=tr("btn_start"))
+        if hasattr(self, "txt_stop_btn"):
+            self.txt_stop_btn.config(text=tr("btn_stop"))
+
+        if hasattr(self, "instructions_box"):
+            self.instructions_box.config(state=tk.NORMAL)
+            self.instructions_box.delete("1.0", tk.END)
+            self.instructions_box.insert(tk.END, tr("instructions_text"))
+            self.instructions_box.config(state=tk.DISABLED)
+
 
     def _prepare_directories_and_csv(self):
         csv_path = self.csv_file_var.get()
@@ -113,6 +294,7 @@ class HandDataCollectorApp:
                     header += [f'x{i}', f'y{i}']
                 header += ['label', 'index']
                 writer.writerow(header)
+
 
     def log(self, text):
         self.log_console.insert(tk.END, text + "\n")
@@ -130,7 +312,7 @@ class HandDataCollectorApp:
             max_num_hands=self.max_num_hands_var.get(),
             model_complexity=self.model_complexity_var.get(),
             min_detection_confidence=float(self.min_detection_confidence_var.get()) / 100.0,
-            min_tracking_confidence=float(self.min_tracking_confidence_var.get()) / 100.0
+            min_tracking_confidence=float(self.min_tracking_confidence_var.get()) / 100.0,
         )
 
     def _detect_cameras(self, max_cameras=5):
@@ -151,26 +333,51 @@ class HandDataCollectorApp:
             if ret:
                 if self.flip_vertical:
                     frame = cv2.flip(frame, 1)
+
                 frame = self.apply_image_adjustments(frame)
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = self.hands.process(frame_rgb)
-                if results.multi_hand_landmarks:
+
+                draw_helpers = self.show_overlays_var.get()
+
+                if draw_helpers and results.multi_hand_landmarks:
                     for hand_landmarks in results.multi_hand_landmarks:
                         mp.solutions.drawing_utils.draw_landmarks(
                             frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS
                         )
-                if self.current_label is not None:
-                    cv2.putText(frame, f'Litera/Liczba: {self.current_label}', (10, 20),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
-                index_display = str(self.new_index) if self.new_index is not None else 'N/A'
-                cv2.putText(frame, f'Indeks znaku (ostatniego): {index_display}', (10, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+
+                if draw_helpers and self.current_label is not None:
+                    cv2.putText(
+                        frame,
+                        tr("lbl_current_label", val=self.current_label),
+                        (10, 20),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        2,
+                    )
+
+                if draw_helpers:
+                    index_display = (
+                        str(self.new_index) if self.new_index is not None else 'N/A'
+                    )
+                    cv2.putText(
+                        frame,
+                        tr("lbl_current_index", val=index_display),
+                        (10, 40),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        1,
+                    )
+
                 self.last_frame = frame.copy()
                 frame_rgb_for_tk = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 img = Image.fromarray(frame_rgb_for_tk)
                 imgtk = ImageTk.PhotoImage(image=img)
                 self.camera_label.imgtk = imgtk
                 self.camera_label.configure(image=imgtk)
+
         self.root.after(20, self.update_frame)
 
     def apply_image_adjustments(self, frame):
@@ -194,7 +401,7 @@ class HandDataCollectorApp:
         return frame
 
     def quit_app(self):
-        self.log("Zamykanie aplikacji...")
+        self.log(tr("log_closing"))
         if self.cap:
             self.cap.release()
         if self.log_file:
@@ -204,7 +411,7 @@ class HandDataCollectorApp:
     def on_camera_select(self, event=None):
         new_index = int(self.camera_combo.get())
         if new_index != self.current_camera_index:
-            self.log(f"Zmieniam kamerę z {self.current_camera_index} na {new_index}...")
+            self.log(tr("log_camera_switch", old=self.current_camera_index, new=new_index))
             self.cap.release()
             self.cap = cv2.VideoCapture(new_index)
             self.current_camera_index = new_index
@@ -213,14 +420,14 @@ class HandDataCollectorApp:
         label_text = self.label_entry.get().strip()
         if label_text:
             self.current_label = label_text.upper()
-            self.log(f"Wybrano literę/cyfrę: {self.current_label}")
+            self.log(tr("log_label_selected", val=self.current_label))
         else:
-            self.log("Nie podano żadnej litery/cyfry!")
+            self.log(tr("log_no_label"))
 
     def toggle_flip(self):
         self.flip_vertical = not self.flip_vertical
-        status = "Włączone" if self.flip_vertical else "Wyłączone"
-        self.log(f"Przerzucanie obrazu w pionie: {status}")
+        status = tr("status_on") if self.flip_vertical else tr("status_off")
+        self.log(tr("log_flip_status", val=status))
 
     def _on_space_or_enter(self, event):
         current_tab_index = self.notebook.index(self.notebook.select())
@@ -228,8 +435,7 @@ class HandDataCollectorApp:
             self.save_data()
 
     def update_scale_label(self, variable: tk.IntVar, label: ttk.Label):
-        val = variable.get()
-        label.config(text=str(val))
+        label.config(text=str(variable.get()))
 
     def reset_to_defaults(self):
         self.brightness_var.set(0)
@@ -243,6 +449,7 @@ class HandDataCollectorApp:
         self.model_complexity_var.set(self.default_model_complexity)
         self.min_detection_confidence_var.set(int(self.default_min_detection_confidence * 100))
         self.min_tracking_confidence_var.set(int(self.default_min_tracking_confidence * 100))
+
         self.update_scale_label(self.brightness_var, self.brightness_value_label)
         self.update_scale_label(self.contrast_var, self.contrast_value_label)
         self.update_scale_label(self.gamma_var, self.gamma_value_label)
@@ -253,12 +460,13 @@ class HandDataCollectorApp:
         self.update_scale_label(self.model_complexity_var, self.model_complexity_label)
         self.update_scale_label(self.min_detection_confidence_var, self.min_detection_label)
         self.update_scale_label(self.min_tracking_confidence_var, self.min_tracking_label)
+
         self._init_mediapipe_hands()
-        self.log("Przywrócono wszystkie ustawienia do wartości domyślnych.")
+        self.log(tr("log_reset_defaults"))
 
     def update_mediapipe_settings(self):
         self._init_mediapipe_hands()
-        self.log("Zaktualizowano ustawienia MediaPipe Hands.")
+        self.log(tr("log_mp_updated"))
 
     def start_training(self):
         self.progress_var.set(0.0)
@@ -269,22 +477,23 @@ class HandDataCollectorApp:
         if self.detection_running:
             return
         self.detection_running = True
-        self.start_det_button.config(state="disabled")
-        self.stop_det_button.config(state="normal")
+        self.det_start_btn.config(state="disabled")
+        self.det_stop_btn.config(state="normal")
+
         t = threading.Thread(target=detection.run_detection, args=(self,))
         t.start()
 
     def stop_detection(self):
         self.detection_running = False
-        self.start_det_button.config(state="normal")
-        self.stop_det_button.config(state="disabled")
+        self.det_start_btn.config(state="normal")
+        self.det_stop_btn.config(state="disabled")
 
     def save_data(self):
         if self.current_label is None:
-            self.log("Najpierw ustaw literę (etykietę)!")
+            self.log(tr("log_first_set_label"))
             return
         if not hasattr(self, 'last_frame'):
-            self.log("Brak danych z kamery (jeszcze nie przetworzono klatki)!")
+            self.log(tr("log_no_camera_data"))
             return
         frame_rgb = cv2.cvtColor(self.last_frame, cv2.COLOR_BGR2RGB)
         results = self.hands.process(frame_rgb)
@@ -318,38 +527,40 @@ class HandDataCollectorApp:
             with open(csv_path, 'r') as f:
                 total_lines = sum(1 for _ in f) - 1
             self.log("#" * 20)
-            self.log(f"Zapisano {self.current_label} o indeksie {new_index} w pliku CSV: {csv_path}.")
-            self.log(f"Aktualnie w pliku CSV jest {total_lines} przykładów.")
+            self.log(tr("log_saved_sample", label=self.current_label, idx=new_index, path=csv_path))
+            self.log(tr("log_csv_total", total=total_lines))
             image_filename = f"{self.current_label}_{new_index}.jpg"
             image_path = os.path.join(label_dir, image_filename)
             cv2.imwrite(image_path, self.last_frame)
-            self.log(f"Zapisano obraz w {image_path}.")
-            count_files = len([fname for fname in os.listdir(label_dir)
-                               if fname.startswith(f"{self.current_label}_") and fname.endswith(".jpg")])
-            self.log(f"W folderze '{self.current_label}' jest {count_files} plików.")
+            self.log(tr("log_saved_image", path=image_path))
+            count_files = len([
+                fname for fname in os.listdir(label_dir)
+                if fname.startswith(f"{self.current_label}_") and fname.endswith(".jpg")
+            ])
+            self.log(tr("log_folder_count", label=self.current_label, count=count_files))
             self.log("#" * 20)
         else:
-            self.log("Nie wykryto dłoni – nie można zapisać danych.")
+            self.log(tr("log_no_hand"))
 
     def clear_images(self):
         if not os.path.exists(self.images_dir):
-            self.log("Folder images już jest pusty lub nie istnieje.")
+            self.log(tr("log_images_empty"))
             return
-        confirm = messagebox.askyesno("Potwierdzenie", "Na pewno usunąć cały katalog 'images' wraz z podkatalogami?")
+        confirm = messagebox.askyesno(tr("dlg_confirm"), tr("dlg_sure_clear_images"))
         if confirm:
             import shutil
             shutil.rmtree(self.images_dir)
             os.makedirs(self.images_dir)
-            self.log("Wyczyszczono katalog images/ wraz z podkatalogami.")
+            self.log(tr("log_images_cleared"))
         else:
-            self.log("Anulowano czyszczenie katalogu images/.")
+            self.log(tr("log_action_cancelled"))
 
     def clear_csv(self):
         csv_path = self.csv_file_var.get()
         if not os.path.exists(csv_path):
-            self.log(f"Plik {csv_path} nie istnieje – nie ma czego czyścić.")
+            self.log(tr("log_csv_missing", path=csv_path))
             return
-        confirm = messagebox.askyesno("Potwierdzenie", f"Na pewno wyzerować zawartość pliku {csv_path}?")
+        confirm = messagebox.askyesno(tr("dlg_confirm"), tr("dlg_sure_reset_csv", file=csv_path))
         if confirm:
             with open(csv_path, mode='w', newline='') as f:
                 writer = csv.writer(f)
@@ -358,14 +569,39 @@ class HandDataCollectorApp:
                     header += [f'x{i}', f'y{i}']
                 header += ['label', 'index']
                 writer.writerow(header)
-            self.log(f"Wyzerowano plik CSV {csv_path} (zapisano tylko nagłówek).")
+            self.log(tr("log_csv_reset", path=csv_path))
         else:
-            self.log("Anulowano czyszczenie pliku CSV.")
+            self.log(tr("log_action_cancelled"))
+    def show_training_plots(self, history):
+        for child in self.plot_frame.winfo_children():
+            child.destroy()
+
+        fig = Figure(figsize=(5, 4))
+        ax1 = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
+
+        ax1.plot(history.history['accuracy'], label='train acc')
+        ax1.plot(history.history['val_accuracy'], label='val acc')
+        ax1.set_title('Accuracy')
+        ax1.set_xlabel('Epoch')
+        ax1.legend()
+
+        ax2.plot(history.history['loss'], label='train loss')
+        ax2.plot(history.history['val_loss'], label='val loss')
+        ax2.set_title('Loss')
+        ax2.set_xlabel('Epoch')
+        ax2.legend()
+
+        canvas = FigureCanvasTkAgg(fig, master=self.plot_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
 
 def main():
     root = tk.Tk()
     app = HandDataCollectorApp(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

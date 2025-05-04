@@ -1,64 +1,22 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
+from locales import tr  # i18n helper
+
 
 def create_instructions_tab(app):
-    instructions_text = (
-        "1. Wymagania wstępne\n"
-        "Python 3.10 (zalecana wersja zgodna z wymaganiami biblioteki TensorFlow i MediaPipe).\n"
-        "\n"
-        "Zainstalowane biblioteki (wirtualne środowisko Python):\n"
-        "- tensorflow\n"
-        "- mediapipe\n"
-        "- opencv-python\n"
-        "- numpy, pandas, joblib, PIL (Pillow)\n"
-        "- tkinter (w systemach Linux bywa domyślnie, w Windows – Python ma wbudowane).\n"
-        "\n"
-        "Kamerka (zintegrowana lub USB) sprawna i poprawnie działająca w systemie. Obraz z kamery musi być wyraźny i dobrej jakości!\n"
-        "\n"
-        "2. Uruchomienie aplikacji\n"
-        "Uruchom wiersz poleceń / terminal w katalogu z plikami aplikacji.\n"
-        "Aktywuj wirtualne środowisko (jeśli go używasz).\n"
-        "Wpisz: python main.py\n"
-        "Powinno otworzyć się główne okno aplikacji z kilkoma zakładkami w górnej części.\n"
-        "\n"
-        "3. Zakładka 'Zbieranie danych'\n"
-        "Służy do nagrywania zdjęć dłoni i zbierania współrzędnych landmarków w pliku CSV.\n"
-        "- Wybierz kamerę, wpisz literę/cyfrę i kliknij 'Ustaw literę'.\n"
-        "- Ustaw dłoń w kadrze, kliknij 'Zapisz dane' lub naciśnij Spację/Enter.\n"
-        "- Dane zostaną zapisane do CSV i folderu images/.\n"
-        "- Możesz modyfikować obraz (jasność, kontrast, gamma, RGB).\n"
-        "- 'Przywróć domyślne' resetuje ustawienia.\n"
-        "- 'Wyczyść folder images' oraz 'Wyzeruj plik CSV' usuwają dane.\n"
-        "\n"
-        "4. Zakładka 'Trening modelu'\n"
-        "- Ustaw ścieżkę do pliku CSV, pliku modelu i skalera.\n"
-        "- Określ parametry treningu.\n"
-        "- Kliknij 'Rozpocznij trening' – proces działa w tle.\n"
-        "- Po zakończeniu model zapisze się do pliku .h5, a skaler do .pkl.\n"
-        "\n"
-        "5. Zakładka 'Detekcja znaków'\n"
-        "- Kliknij 'Start Detekcji', aby uruchomić rozpoznawanie w czasie rzeczywistym.\n"
-        "- Rozpoznane litery pojawiają się w polu tekstowym.\n"
-        "- Opcja 'Wstawiaj znak tylko po Enterze' pozwala ręcznie potwierdzać wynik.\n"
-        "- Okno z top10 predykcjami pokazuje wyniki sieci neuronowej.\n"
-        "\n"
-        "6. Zakładka 'Detekcja tekstu'\n"
-        "- Załaduj plik tekstowy i kliknij 'Wczytaj tekst'.\n"
-        "- Kliknij 'Start', aby rozpocząć rozpoznawanie znaków zgodnie z tekstem.\n"
-        "- Poprawne znaki są podświetlane na zielono.\n"
-        "- Statystyki informują o liczbie rozpoznanych znaków i błędach.\n"
-        "- Tryb 'Rozpoznawaj wieloznaki' umożliwia wykrywanie np. SZ jako jednego znaku.\n"
-        "\n"
-        "7. Najczęstsze problemy i ich rozwiązanie\n"
-        "- Obraz z kamery się nie wyświetla? Sprawdź czy inna aplikacja jej nie używa.\n"
-        "- Brak pliku CSV lub kolumny 'label'? Upewnij się, że dane zostały zapisane poprawnie.\n"
-        "- Błędy przy ładowaniu modelu? Sprawdź ścieżki do plików.\n"
-        "- Zawieszenie aplikacji? Trening może być zasobożerny – poczekaj cierpliwie.\n"
-        "- Brak folderu text_files? Utwórz go ręcznie i dodaj pliki tekstowe.\n"
-        "- Detekcja działa zbyt wolno? Obniż model_complexity lub zwiększ interwał.\n"
+    app.instructions_box = scrolledtext.ScrolledText(
+        app.tab_instructions, wrap=tk.WORD, font=("Roboto", 12)
     )
+    app.instructions_box.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-    instructions_box = scrolledtext.ScrolledText(app.tab_instructions, wrap=tk.WORD, font=("Roboto", 12))
-    instructions_box.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-    instructions_box.insert(tk.END, instructions_text)
-    instructions_box.config(state=tk.DISABLED)
+    _refresh_instructions(app)
+    app.refresh_instructions = lambda: _refresh_instructions(app)
+
+
+def _refresh_instructions(app):
+    """(Re)fills the scrolled‑text box with translated manual."""
+    box: scrolledtext.ScrolledText = app.instructions_box
+    box.config(state=tk.NORMAL)
+    box.delete("1.0", tk.END)
+    box.insert(tk.END, tr("instructions_text"))
+    box.config(state=tk.DISABLED)
