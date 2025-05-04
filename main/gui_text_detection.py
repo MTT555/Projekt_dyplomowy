@@ -56,7 +56,7 @@ def run_text_detection(app):
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.5, min_tracking_confidence=0.5)
     mp_drawing = mp.solutions.drawing_utils
-    cap = cv2.VideoCapture(app.current_camera_index)
+    cap = app.open_camera(app.current_camera_index)
 
     def update_text_detection():
         if not app.text_detection_running:

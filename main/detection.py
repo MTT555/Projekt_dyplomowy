@@ -66,7 +66,7 @@ def run_detection(app):
     app.last_detected_letter = ""
     app.next_letter = ""
 
-    cap = cv2.VideoCapture(app.current_camera_index)
+    cap = app.open_camera(app.current_camera_index)
 
     def update_detection():
         if not app.detection_running:

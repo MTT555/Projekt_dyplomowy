@@ -215,5 +215,8 @@ COMMON HICCUPS → QUICK FIXES
 "frame_train_plots":    "Training plots",
 "lbl_validation_split": "Validation split:",
 "lbl_monitor:":          "EarlyStopping monitor:",
-"err_validation_split_range": "Validation split must be between 0 and 1."
+"err_validation_split_range": "Validation split must be between 0 and 1.",
+"msg_wait_camera": "Please wait, initializing camera…",
+"main_window_title": "Real-Time Sign Language Capture",
+"wait_window_title": "Initializing camera…"
 }

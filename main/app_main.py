@@ -33,7 +33,7 @@ class HandDataCollectorApp:
         # ---------- basic state ----------
         self.root = root
         set_language("en")                               # default language
-        self.root.title(tr("app_title"))
+        self.root.title(tr("main_window_title"))  
 
         # UI‑controlled variables
         self.interval_var = tk.StringVar(value="1000")
@@ -83,7 +83,8 @@ class HandDataCollectorApp:
         self.notebook.add(self.tab_text_detection, text=tr("tab_text"))
         self.tab_instructions = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_instructions, text=tr("tab_instr"))
-
+        self.last_tab_index = 0
+        self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
         # log console
         self.log_console = scrolledtext.ScrolledText(
             self.main_frame, height=10, wrap=tk.WORD, font=("Roboto", 12)
@@ -124,7 +125,7 @@ class HandDataCollectorApp:
         if not self.available_cameras:
             raise RuntimeError(tr("err_no_camera"))
         self.current_camera_index = self.available_cameras[0]
-        self.cap = cv2.VideoCapture(self.current_camera_index)
+
 
         # ---------- create GUI sub-tabs ----------
         gui_collect.create_collect_tab(self)
@@ -133,6 +134,8 @@ class HandDataCollectorApp:
         gui_text_detection.create_text_detection_tab(self)
         gui_instructions.create_instructions_tab(self)
 
+        self.cap = None
+        self.root.after_idle(self._init_first_camera)
         # ---------- bindings ----------
         self.root.bind_all("<space>", self._on_space_or_enter)
         self.root.bind_all("<Return>", self._on_space_or_enter)
@@ -142,7 +145,60 @@ class HandDataCollectorApp:
 
         # start UI updates
         self.update_frame()
+    def on_tab_changed(self, event):
+        new = event.widget.index("current")
+        old = self.last_tab_index
 
+        if old == self.notebook.index(self.tab_collect):
+            if self.cap and self.cap.isOpened():
+                self.cap.release()
+                self.cap = None
+
+        if old == self.notebook.index(self.tab_detection) and self.detection_running:
+            self.detection_running = False
+            self.det_start_btn.config(state="normal")
+            self.det_stop_btn.config(state="disabled")
+
+        if (new == self.notebook.index(self.tab_collect)
+                and not self.detection_running
+                and (self.cap is None or not self.cap.isOpened())):
+            self.cap = self.open_camera(self.current_camera_index)
+
+        self.last_tab_index = new
+
+    def open_camera(self, index):
+        dlg = tk.Toplevel(self.root)
+        dlg.transient(self.root)
+        dlg.grab_set()
+        dlg.title(tr("wait_window_title")) 
+        lbl = tk.Label(dlg, text=tr("msg_wait_camera"))
+        lbl.pack(padx=20, pady=20)
+
+        self.root.update_idletasks() 
+        dlg.update_idletasks()
+
+        w, h = dlg.winfo_width(), dlg.winfo_height()
+
+        rw, rh = self.root.winfo_width(), self.root.winfo_height()
+        if rw < 50 or rh < 50:     
+            sx = self.root.winfo_screenwidth()
+            sy = self.root.winfo_screenheight()
+            x = (sx - w) // 2
+            y = (sy - h) // 2
+        else:                      
+            rx, ry = self.root.winfo_rootx(), self.root.winfo_rooty()
+            x = rx + (rw - w) // 2
+            y = ry + (rh - h) // 2
+
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
+        cap = cv2.VideoCapture(index)
+        dlg.update()       
+        dlg.grab_release() 
+        dlg.destroy()   
+        return cap
+    def _init_first_camera(self):
+        if self.cap is None:
+            self.cap = self.open_camera(self.current_camera_index)
     # ------------------------------------------------------------------
     # language switching
     # ------------------------------------------------------------------
@@ -152,7 +208,7 @@ class HandDataCollectorApp:
         self.refresh_ui_texts()
 
     def refresh_ui_texts(self):
-        self.root.title(tr("app_title"))
+        self.root.title(tr("main_window_title")) 
 
         if hasattr(self, "lang_label"):
             self.lang_label.config(text=tr("language_label"))
@@ -413,7 +469,7 @@ class HandDataCollectorApp:
         if new_index != self.current_camera_index:
             self.log(tr("log_camera_switch", old=self.current_camera_index, new=new_index))
             self.cap.release()
-            self.cap = cv2.VideoCapture(new_index)
+            self.cap = self.open_camera(new_index)
             self.current_camera_index = new_index
 
     def set_label(self):

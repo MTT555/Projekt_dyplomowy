@@ -268,5 +268,8 @@ SZYBKA POMOC
 "frame_train_plots":    "Wykresy treningu",
 "lbl_validation_split": "Podział na walidację:",
 "lbl_monitor":          "Monitor EarlyStopping:",
-"err_validation_split_range": "Podział na walidację musi być między 0 i 1."
+"err_validation_split_range": "Podział na walidację musi być między 0 i 1.",
+"msg_wait_camera": "Proszę czekać, inicjalizacja kamery…",
+"main_window_title": "Rozpoznawanie gestów dłoni",
+"wait_window_title": "Inicjalizacja kamery…"
 }
