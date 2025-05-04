@@ -168,34 +168,45 @@ class HandDataCollectorApp:
 
     def open_camera(self, index):
         dlg = tk.Toplevel(self.root)
-        dlg.transient(self.root)
-        dlg.grab_set()
         dlg.title(tr("wait_window_title")) 
+        dlg.transient(self.root)
+        
         lbl = tk.Label(dlg, text=tr("msg_wait_camera"))
         lbl.pack(padx=20, pady=20)
 
-        self.root.update_idletasks() 
+        self.root.update_idletasks()
         dlg.update_idletasks()
 
         w, h = dlg.winfo_width(), dlg.winfo_height()
-
         rw, rh = self.root.winfo_width(), self.root.winfo_height()
-        if rw < 50 or rh < 50:     
+        if rw < 50 or rh < 50:
             sx = self.root.winfo_screenwidth()
             sy = self.root.winfo_screenheight()
             x = (sx - w) // 2
             y = (sy - h) // 2
-        else:                      
+        else:
             rx, ry = self.root.winfo_rootx(), self.root.winfo_rooty()
             x = rx + (rw - w) // 2
             y = ry + (rh - h) // 2
 
         dlg.geometry(f"{w}x{h}+{x}+{y}")
+
+        def safe_grab():
+            if dlg.winfo_viewable():
+                try:
+                    dlg.grab_set()
+                except tk.TclError:
+                    pass
+            else:
+                dlg.after(50, safe_grab)
+
+        dlg.after(50, safe_grab)
+
         cap = cv2.VideoCapture(index)
-        dlg.update()       
-        dlg.grab_release() 
-        dlg.destroy()   
+        dlg.update()
+        dlg.destroy()
         return cap
+
     def _init_first_camera(self):
         if self.cap is None:
             self.cap = self.open_camera(self.current_camera_index)
