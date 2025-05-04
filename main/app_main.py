@@ -8,6 +8,8 @@ import threading
 import mediapipe as mp
 import joblib
 import tensorflow as tf
+import platform
+import time
 from PIL import Image, ImageTk
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -202,10 +204,11 @@ class HandDataCollectorApp:
 
         dlg.after(50, safe_grab)
 
-        cap = cv2.VideoCapture(index)
+        cap = open_capture(index)
         dlg.update()
         dlg.destroy()
         return cap
+
 
     def _init_first_camera(self):
         if self.cap is None:
@@ -663,7 +666,32 @@ class HandDataCollectorApp:
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+def open_capture(index: int, warmup_sec: float = 2.0) -> cv2.VideoCapture:
+        sys = platform.system()
+        if sys == "Windows":
+            backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]
+        elif sys == "Linux":
+            backends = [cv2.CAP_V4L2, cv2.CAP_ANY]
+        else:
+            backends = [cv2.CAP_ANY]
 
+        for be in backends:
+            cap = cv2.VideoCapture(index, be)
+            if not cap.isOpened():
+                cap.release()
+                continue
+
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1) 
+            t0 = time.time()
+            while time.time() - t0 < warmup_sec:
+                ok, _ = cap.read()
+                if ok:
+                    return cap
+                time.sleep(0.05)
+
+            cap.release()
+
+        raise RuntimeError(f"Cannot open camera index {index}")
 def main():
     root = tk.Tk()
     app = HandDataCollectorApp(root)
