@@ -30,40 +30,92 @@ import gui_text_detection
 from utils import disable_space_activation, TextRedirector
 
 class ScrollableFrame(ttk.Frame):
+    """
+    A vertically- (and horizontally-) scrollable frame that binds the mouse wheel
+    when the cursor is over the canvas. Works on Windows, macOS and Linux.
+    """
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
-        canvas = tk.Canvas(self)
-        vsb = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        hsb = ttk.Scrollbar(self, orient="horizontal", command=canvas.xview)
-        self.scrollable_frame = ttk.Frame(canvas)
 
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        # Create canvas and scrollbars
+        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.v_scroll = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.h_scroll = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+        self.canvas.configure(yscrollcommand=self.v_scroll.set,
+                              xscrollcommand=self.h_scroll.set)
 
-        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
-        canvas.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
+        # Place them in a grid
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.v_scroll.grid(row=0, column=1, sticky="ns")
+        self.h_scroll.grid(row=1, column=0, sticky="ew")
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
+        # This is the frame that will hold your widgets
+        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+
+        # Embed the inner frame into the canvas
+        self._window = self.canvas.create_window((0, 0),
+                                                 window=self.scrollable_frame,
+                                                 anchor="nw")
+
+        # Bindings to make the mouse wheel work only when pointer is over the canvas
+        system = platform.system()
+        if system in ("Windows", "Darwin"):
+            # Windows and macOS use <MouseWheel>
+            self.canvas.bind("<Enter>", lambda e: self.canvas.bind_all("<MouseWheel>", self._on_mousewheel))
+            self.canvas.bind("<Leave>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
+        else:
+            # Linux uses Button-4 (scroll up) and Button-5 (scroll down)
+            self.canvas.bind("<Enter>", lambda e: (
+                self.canvas.bind_all("<Button-4>",   lambda ev: self.canvas.yview_scroll(-1, "units")),
+                self.canvas.bind_all("<Button-5>",   lambda ev: self.canvas.yview_scroll( 1, "units"))
+            ))
+            self.canvas.bind("<Leave>", lambda e: (
+                self.canvas.unbind_all("<Button-4>"),
+                self.canvas.unbind_all("<Button-5>")
+            ))
+
+    def _on_mousewheel(self, event):
+        """
+        Generic mousewheel handler for Windows/macOS.
+        event.delta is ±120 per notch.
+        """
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
 class HandDataCollectorApp:
     def __init__(self, root):
         # ---------- basic state ----------
         self.root = root
-        set_language("en")                               # default language
+        set_language("en")
+        self.language_var = tk.StringVar(value="en")
+
+        # ——— language selector ———
+        lang_frame = ttk.Frame(self.root)
+        lang_frame.pack(side="top", fill="x", pady=5, padx=10)
+
+        self.lang_label = ttk.Label(lang_frame, text=tr("language_label"))
+        self.lang_label.pack(side="left")
+
+        self.lang_combo = ttk.Combobox(
+            lang_frame,
+            textvariable=self.language_var,
+            values=["en","pl"],
+            state="readonly",
+            width=5
+        )
+        self.lang_combo.pack(side="left", padx=(5,0))
+        self.lang_combo.bind("<<ComboboxSelected>>", self.change_language)                               # default language
         self.root.title(tr("main_window_title"))  
 
         # UI‑controlled variables
         self.interval_var = tk.StringVar(value="1000")
         self.enter_mode_var = tk.BooleanVar(value=False)
         self.show_overlays_var = tk.BooleanVar(value=True)
-        self.language_var = tk.StringVar(value="en")     # language selector
 
         # ---------- logs ----------
         self.logs_dir = "other"
