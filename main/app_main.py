@@ -184,6 +184,7 @@ class HandDataCollectorApp:
         if not self.available_cameras:
             raise RuntimeError(tr("err_no_camera"))
         self.current_camera_index = self.available_cameras[0]
+        self.camera_var = tk.StringVar(value=str(self.current_camera_index))
 
 
         # ---------- create GUI sub-tabs ----------
@@ -404,6 +405,8 @@ class HandDataCollectorApp:
             self.txt_start_btn.config(text=tr("btn_start"))
         if hasattr(self, "txt_stop_btn"):
             self.txt_stop_btn.config(text=tr("btn_stop"))
+        if hasattr(self, "restart_cam_btn"):
+            self.restart_cam_btn.config(text=tr("btn_restart_camera"))
             
 
         if hasattr(self, "instructions_box"):

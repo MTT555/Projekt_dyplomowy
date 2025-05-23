@@ -25,22 +25,24 @@ def create_collect_tab(app):
 
 def _create_collect_controls(app):
     app.col_lbl_choose_cam = ttk.Label(app.controls_frame, text=tr("lbl_choose_camera"))
-    app.col_lbl_choose_cam.pack(pady=(5, 0))
+    app.col_lbl_choose_cam.pack(anchor="w", padx=5, pady=(5,0))
 
     app.camera_combo = ttk.Combobox(
         app.controls_frame,
+        textvariable=app.camera_var,                       
+        values=[str(i) for i in app.available_cameras],   
         state="readonly",
-        values=app.available_cameras
+        width=3
     )
-    app.camera_combo.set(app.current_camera_index)
-    app.camera_combo.pack(padx=5, pady=5)
+    app.camera_combo.pack(anchor="w", padx=5, pady=5)
     app.camera_combo.bind("<<ComboboxSelected>>", app.on_camera_select)
+
     app.restart_cam_btn = ttk.Button(
-    app.controls_frame,
-    text=tr("btn_restart_camera"),
-    command=app.restart_camera
-)
-    app.restart_cam_btn.pack(side=tk.LEFT, padx=5, pady=2)
+        app.controls_frame,
+        text=tr("btn_restart_camera"),
+        command=app.restart_camera
+    )
+    app.restart_cam_btn.pack(anchor="w", padx=5, pady=(0,10))
 
     app.col_lbl_enter_label = ttk.Label(app.controls_frame, text=tr("lbl_enter_label"))
     app.col_lbl_enter_label.pack(pady=5)
