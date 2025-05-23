@@ -224,5 +224,7 @@ COMMON HICCUPS → QUICK FIXES
 "log_flip_horizontal_on": "Horizontal flip: ON",
 "log_flip_horizontal_off": "Horizontal flip: OFF",
 "log_flip_vertical_on": "Vertical flip: ON",
-"log_flip_vertical_off": "Vertical flip: OFF"
+"log_flip_vertical_off": "Vertical flip: OFF",
+"btn_restart_camera": "Restart camera",
+"log_camera_restarted": "Camera has been restarted"
 }

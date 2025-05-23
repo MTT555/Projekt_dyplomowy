@@ -35,6 +35,12 @@ def _create_collect_controls(app):
     app.camera_combo.set(app.current_camera_index)
     app.camera_combo.pack(padx=5, pady=5)
     app.camera_combo.bind("<<ComboboxSelected>>", app.on_camera_select)
+    app.restart_cam_btn = ttk.Button(
+    app.controls_frame,
+    text=tr("btn_restart_camera"),
+    command=app.restart_camera
+)
+    app.restart_cam_btn.pack(side=tk.LEFT, padx=5, pady=2)
 
     app.col_lbl_enter_label = ttk.Label(app.controls_frame, text=tr("lbl_enter_label"))
     app.col_lbl_enter_label.pack(pady=5)

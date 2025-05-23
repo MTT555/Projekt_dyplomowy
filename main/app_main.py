@@ -204,6 +204,11 @@ class HandDataCollectorApp:
 
         # start UI updates
         self.update_frame()
+    def restart_camera(self):
+        if hasattr(self, 'cap') and self.cap and self.cap.isOpened():
+            self.cap.release()
+        self.cap = self.open_camera(self.current_camera_index)
+        self.log(tr("log_camera_restarted"))
     def on_tab_changed(self, event):
         new = event.widget.index("current")
         old = self.last_tab_index

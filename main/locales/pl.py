@@ -277,5 +277,7 @@ SZYBKA POMOC
 "log_flip_horizontal_on": "Przerzucanie poziomo: WŁĄCZONE",
 "log_flip_horizontal_off": "Przerzucanie poziomo: WYŁĄCZONE",
 "log_flip_vertical_on": "Przerzucanie pionowo: WŁĄCZONE",
-"log_flip_vertical_off": "Przerzucanie pionowo: WYŁĄCZONE"
+"log_flip_vertical_off": "Przerzucanie pionowo: WYŁĄCZONE",
+"btn_restart_camera": "Restartuj kamerę",
+"log_camera_restarted": "Kamera została zrestartowana"
 }
