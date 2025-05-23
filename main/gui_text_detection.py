@@ -145,6 +145,24 @@ def create_text_detection_tab(app):
 
     left = ttk.Frame(main_frame)
     left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    app.text_cam_combo = ttk.Combobox(
+        left,
+        textvariable=app.camera_var,
+        values=[str(i) for i in app.available_cameras],
+        state="readonly",
+        width=3
+    )
+    app.text_cam_combo.set(app.current_camera_index)
+    app.text_cam_combo.pack(anchor="center", pady=(5,0))
+    app.text_cam_combo.bind("<<ComboboxSelected>>", app.on_camera_select)
+
+    app.text_restart_cam_btn = ttk.Button(
+        left,
+        text=tr("btn_restart_camera"),
+        command=app.restart_camera
+    )
+    app.text_restart_cam_btn.pack(anchor="center", pady=(0,5))
+    disable_space_activation(app.text_restart_cam_btn)
     right = ttk.Frame(main_frame, width=300)
     right.pack(side=tk.RIGHT, fill=tk.Y)
 

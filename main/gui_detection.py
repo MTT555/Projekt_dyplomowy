@@ -10,6 +10,24 @@ def create_detection_tab(app):
     app.det_left_frame = ttk.Frame(app.det_main_frame)
     app.det_left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+    app.det_cam_combo = ttk.Combobox(
+        app.det_left_frame,
+        textvariable=app.camera_var,
+        values=[str(i) for i in app.available_cameras],
+        state="readonly",
+        width=3
+    )
+    app.det_cam_combo.set(app.current_camera_index)
+    app.det_cam_combo.pack(anchor="center", pady=(5,0))
+    app.det_cam_combo.bind("<<ComboboxSelected>>", app.on_camera_select)
+
+    app.det_restart_cam_btn = ttk.Button(
+        app.det_left_frame,
+        text=tr("btn_restart_camera"),
+        command=app.restart_camera
+    )
+    app.det_restart_cam_btn.pack(anchor="center", pady=(0,5))
+
     app.det_camera_label = ttk.Label(app.det_left_frame, font=("Roboto", 12))
     app.det_camera_label.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
