@@ -79,9 +79,16 @@ def _create_collect_controls(app):
 
     app.col_btn_flip = ttk.Button(
         app.controls_frame,
-        text=tr("btn_flip"),
-        command=app.toggle_flip
+        text=tr("btn_flip_horizontal") or "Flip poziomo",
+        command=app.toggle_flip_horizontal
     )
+    app.col_btn_flip_vertical = ttk.Button(
+        app.controls_frame,
+        text=tr("btn_flip_vertical") or "Flip pionowo",
+        command=app.toggle_flip_vertical
+    )
+    app.col_btn_flip_vertical.pack(pady=5)
+    disable_space_activation(app.col_btn_flip_vertical)
     app.col_btn_flip.pack(pady=5)
     disable_space_activation(app.col_btn_flip)
 

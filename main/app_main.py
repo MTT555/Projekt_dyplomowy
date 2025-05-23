@@ -29,6 +29,28 @@ import gui_instructions
 import gui_text_detection
 from utils import disable_space_activation, TextRedirector
 
+class ScrollableFrame(ttk.Frame):
+    def __init__(self, container, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+        canvas = tk.Canvas(self)
+        vsb = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        hsb = ttk.Scrollbar(self, orient="horizontal", command=canvas.xview)
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        canvas.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
 
 class HandDataCollectorApp:
     def __init__(self, root):
@@ -51,45 +73,27 @@ class HandDataCollectorApp:
         self.log_file = open(self.logs_file_path, mode='w', encoding='utf-8')
 
         # ---------- main layout ----------
-        self.main_frame = ttk.Frame(self.root)
+        self.main_frame = ScrollableFrame(self.root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # language combobox (top‑right)
-        lang_frame = ttk.Frame(self.root)
-        lang_frame.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10) 
-
-        self.lang_label = ttk.Label(lang_frame, text=tr("language_label"))
-        self.lang_label.pack(side=tk.LEFT, padx=(0,5))
-
-        self.lang_combo = ttk.Combobox(
-            lang_frame,
-            values=["en", "pl"],
-            textvariable=self.language_var,
-            state="readonly",
-            width=3
-        )
-        self.lang_combo.pack()
-        self.lang_combo.bind("<<ComboboxSelected>>", self.change_language)
-
-        # notebook tabs
-        self.notebook = ttk.Notebook(self.main_frame)
+        self.notebook = ttk.Notebook(self.main_frame.scrollable_frame)
         self.notebook.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         self.tab_collect = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_collect, text=tr("tab_collect"))
-        self.tab_train = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_train, text=tr("tab_train"))
+        self.tab_train   = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_train,   text=tr("tab_train"))
         self.tab_detection = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_detection, text=tr("tab_detection"))
         self.tab_text_detection = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_text_detection, text=tr("tab_text"))
-        self.tab_instructions = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_instructions, text=tr("tab_instr"))
+        self.tab_instructions  = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_instructions,  text=tr("tab_instr"))
         self.last_tab_index = 0
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
-        # log console
+
         self.log_console = scrolledtext.ScrolledText(
-            self.main_frame, height=10, wrap=tk.WORD, font=("Roboto", 12)
+            self.main_frame.scrollable_frame, height=10, wrap=tk.WORD, font=("Roboto", 12)
         )
         self.log_console.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=False)
 
@@ -103,6 +107,7 @@ class HandDataCollectorApp:
         # ---------- misc state ----------
         self.current_label = None
         self.flip_vertical = False
+        self.flip_horizontal = False
         self.new_index = None
 
         # ---------- default MediaPipe params ----------
@@ -342,12 +347,16 @@ class HandDataCollectorApp:
             self.txt_start_btn.config(text=tr("btn_start"))
         if hasattr(self, "txt_stop_btn"):
             self.txt_stop_btn.config(text=tr("btn_stop"))
+            
 
         if hasattr(self, "instructions_box"):
             self.instructions_box.config(state=tk.NORMAL)
             self.instructions_box.delete("1.0", tk.END)
             self.instructions_box.insert(tk.END, tr("instructions_text"))
             self.instructions_box.config(state=tk.DISABLED)
+        if hasattr(self, "_i18n_widgets_text"):
+             for widget, key in self._i18n_widgets_text:
+                 widget.config(text=tr(key))
 
 
     def _prepare_directories_and_csv(self):
@@ -401,9 +410,10 @@ class HandDataCollectorApp:
         if current_tab_index == 0 and self.cap and self.cap.isOpened():
             ret, frame = self.cap.read()
             if ret:
-                if self.flip_vertical:
+                if self.flip_horizontal:
                     frame = cv2.flip(frame, 1)
-
+                if self.flip_vertical:
+                    frame = cv2.flip(frame, 0)
                 frame = self.apply_image_adjustments(frame)
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = self.hands.process(frame_rgb)
@@ -498,6 +508,15 @@ class HandDataCollectorApp:
         self.flip_vertical = not self.flip_vertical
         status = tr("status_on") if self.flip_vertical else tr("status_off")
         self.log(tr("log_flip_status", val=status))
+    def toggle_flip_horizontal(self):
+        self.flip_horizontal = not self.flip_horizontal
+        status = "ON" if self.flip_horizontal else "OFF"
+        self.log(f"Przerzucanie obrazu poziomo: {status}")
+
+    def toggle_flip_vertical(self):
+        self.flip_vertical = not self.flip_vertical
+        status = "ON" if self.flip_vertical else "OFF"
+        self.log(f"Przerzucanie obrazu pionowo: {status}")
 
     def _on_space_or_enter(self, event):
         current_tab_index = self.notebook.index(self.notebook.select())

@@ -218,5 +218,11 @@ COMMON HICCUPS → QUICK FIXES
 "err_validation_split_range": "Validation split must be between 0 and 1.",
 "msg_wait_camera": "Please wait, initializing camera…",
 "main_window_title": "Real-Time Sign Language Capture",
-"wait_window_title": "Initializing camera…"
+"wait_window_title": "Initializing camera…",
+"btn_flip_horizontal": "Flip horizontally",
+"btn_flip_vertical": "Flip vertically",
+"log_flip_horizontal_on": "Horizontal flip: ON",
+"log_flip_horizontal_off": "Horizontal flip: OFF",
+"log_flip_vertical_on": "Vertical flip: ON",
+"log_flip_vertical_off": "Vertical flip: OFF"
 }

@@ -75,6 +75,10 @@ def run_detection(app):
             return
 
         ret, frame = cap.read()
+        if app.flip_horizontal:
+            frame = cv2.flip(frame, 1)
+        if app.flip_vertical:
+            frame = cv2.flip(frame, 0)
         if ret:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = hands.process(frame_rgb)

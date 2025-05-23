@@ -9,6 +9,7 @@ import joblib
 import tensorflow as tf
 from PIL import Image, ImageTk
 import pandas as pd
+from utils import disable_space_activation
 from locales import tr
 
 def show_top10_predictions_text(app, pred_prob):
@@ -66,6 +67,10 @@ def run_text_detection(app):
 
         ret, frame = cap.read()
         if ret:
+            if app.flip_horizontal:
+                 frame = cv2.flip(frame, 1)
+            if app.flip_vertical:
+                 frame = cv2.flip(frame, 0)
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = hands.process(frame_rgb)
             letter = ""
@@ -178,6 +183,23 @@ def create_text_detection_tab(app):
 
     btn_frame = ttk.Frame(right)
     btn_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
+
+    flip_h_btn = ttk.Button(
+        btn_frame,
+        text=tr("btn_flip_horizontal") or "Flip poziomo",
+        command=app.toggle_flip_horizontal
+    )
+    flip_h_btn.pack(side=tk.LEFT, padx=5)
+    disable_space_activation(flip_h_btn)
+
+    flip_v_btn = ttk.Button(
+        btn_frame,
+        text=tr("btn_flip_vertical") or "Flip pionowo",
+        command=app.toggle_flip_vertical
+    )
+    flip_v_btn.pack(side=tk.LEFT, padx=5)
+    disable_space_activation(flip_v_btn)
+
     app.td_load_btn = ttk.Button(btn_frame, text=tr("btn_load_text"))
     app.td_load_btn.pack(side=tk.LEFT, padx=5)
 
@@ -259,3 +281,15 @@ def create_text_detection_tab(app):
     app.recognised_signs = 0
     app.failed_attempts = 0
     update_text_stats(app)
+    if not hasattr(app, "_i18n_widgets_text"):
+        app._i18n_widgets_text = []
+        app._i18n_widgets_text.extend([
+        (app.td_interval_label,       "lbl_interval"),
+        (app.td_threshold_label,      "lbl_threshold"),
+        (app.td_choose_file_lbl,      "lbl_select_text_file"),
+        (app.td_load_btn,             "btn_load_text"),
+        (app.td_start_btn,            "btn_start"),
+        (app.td_stop_btn,             "btn_stop"),
+        (flip_h_btn,                  "btn_flip_horizontal"),
+        (flip_v_btn,                  "btn_flip_vertical"),
+    ])

@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
+from utils import disable_space_activation
 from locales import tr
 
 def create_detection_tab(app):
@@ -55,6 +56,22 @@ def create_detection_tab(app):
 
     btn_frame = ttk.Frame(control_frame)
     btn_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
+
+    flip_h_det = ttk.Button(
+        btn_frame,
+        text=tr("btn_flip_horizontal") or "Flip poziomo",
+        command=app.toggle_flip_horizontal
+    )
+    flip_h_det.pack(side=tk.LEFT, padx=5)
+    disable_space_activation(flip_h_det)
+
+    flip_v_det = ttk.Button(
+        btn_frame,
+        text=tr("btn_flip_vertical") or "Flip pionowo",
+        command=app.toggle_flip_vertical
+    )
+    flip_v_det.pack(side=tk.LEFT, padx=5)
+    disable_space_activation(flip_v_det)
 
     original_start_detection_cmd = app.start_detection
     def validated_start_detection():
