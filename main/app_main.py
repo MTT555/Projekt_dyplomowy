@@ -407,6 +407,10 @@ class HandDataCollectorApp:
             self.txt_stop_btn.config(text=tr("btn_stop"))
         if hasattr(self, "restart_cam_btn"):
             self.restart_cam_btn.config(text=tr("btn_restart_camera"))
+        if hasattr(self, "det_restart_cam_btn"):
+            self.det_restart_cam_btn.config(text=tr("btn_restart_camera"))
+        if hasattr(self, "text_restart_cam_btn"):
+            self.text_restart_cam_btn.config(text=tr("btn_restart_camera"))
             
 
         if hasattr(self, "instructions_box"):
